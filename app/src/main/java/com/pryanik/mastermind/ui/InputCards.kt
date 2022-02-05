@@ -14,27 +14,32 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.pryanik.mastermind.ui.theme.MasterMindTheme
 
+val outputHeight = 80.dp
+val innerPadding = 20.dp
+
+//Todo Рефакторинг - добавить confirmButton: @Composable () -> Unit
+
 @Composable
 fun GuesserContent(
     enabled: Boolean = true,
-    answer: Pair<String, String>,
-    onGuessChanged: (String) -> Unit/*, confirmButton: @Composable () -> Unit*/
+    answer: Pair<Int, Int>,
+    onGuessChanged: (String) -> Unit
 ) {
     val (text, setText) = rememberSaveable { mutableStateOf("") }
     Column(
         Modifier
             .background(color = MaterialTheme.colors.secondary)
-            .padding(20.dp)
+            .padding(innerPadding)
     ) {
         Row(
             Modifier
                 .align(Alignment.CenterHorizontally)
-                .height(80.dp)
+                .height(outputHeight)
         ) {
             if (enabled) {
-                TextWithSub("Bulls:", answer.first)
+                TextWithSub("Bulls:", answer.first.toString())
                 Spacer(modifier = Modifier.width(20.dp))
-                TextWithSub("Cows:", answer.second)
+                TextWithSub("Cows:", answer.second.toString())
             } else Loading()
         }
         DigitsTextField(
@@ -66,12 +71,12 @@ fun SolverContent(
     Column(
         Modifier
             .background(MaterialTheme.colors.secondaryVariant)
-            .padding(20.dp)
+            .padding(innerPadding)
     ) {
         Row(
             Modifier
                 .align(Alignment.CenterHorizontally)
-                .height(80.dp)
+                .height(outputHeight)
         ) {
             if (enabled) TextWithSub("Guess:", guess)
             else Loading()
@@ -108,7 +113,7 @@ fun SolverContent(
 @Composable
 fun GuesserPreview() {
     MasterMindTheme {
-        GuesserContent(true, "1" to "3") {}
+        GuesserContent(true, 1 to 3) {}
     }
 }
 

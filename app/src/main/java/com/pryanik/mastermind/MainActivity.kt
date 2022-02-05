@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.pryanik.mastermind.logic.Guesser
+import com.pryanik.mastermind.logic.MinimaxSieve
 import com.pryanik.mastermind.ui.GuesserContent
 import com.pryanik.mastermind.ui.SolverContent
 import com.pryanik.mastermind.ui.theme.MasterMindTheme
@@ -51,7 +52,7 @@ fun MainScreen() {
                 .align(Alignment.CenterHorizontally)
         ) {
             Button(onClick = { isGuesser = !isGuesser }) {
-                Text(text = "Перевенуть")
+                Text(text = "Другой режим")
             }
         }
         Surface(
@@ -71,7 +72,7 @@ fun MainScreen() {
     }
 }
 
-val guesser = Guesser()
+val guesser: Guesser = MinimaxSieve()
 
 @Composable
 fun InputFragment(
@@ -79,10 +80,10 @@ fun InputFragment(
 ) {
     //Todo Рефакторинг
     var guess by rememberSaveable { mutableStateOf("----") }
-    var answer by rememberSaveable { mutableStateOf("-" to "-") }
+    var answer by rememberSaveable { mutableStateOf(0 to 0) }
 
     var isEnableGuesser by rememberSaveable { mutableStateOf(false) }
-    var isEnableSolver by rememberSaveable { mutableStateOf(false) }
+    var isEnableSolver by rememberSaveable { mutableStateOf(true) }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -107,7 +108,7 @@ fun InputFragment(
             isEnableSolver = false
             // Вычисления
             guess = guesser.makeNextGuess(bulls.toInt(), cows.toInt())
-            isEnableGuesser = true
+            isEnableSolver = true
         }
     }
 }
