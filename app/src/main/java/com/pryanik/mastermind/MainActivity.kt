@@ -3,35 +3,30 @@ package com.pryanik.mastermind
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.pryanik.mastermind.logic.Guesser
-import com.pryanik.mastermind.logic.MinimaxSieve
-import com.pryanik.mastermind.ui.GuesserContent
-import com.pryanik.mastermind.ui.SolverContent
+import com.pryanik.mastermind.ui.DecoderInput
+import com.pryanik.mastermind.ui.EncoderInput
 import com.pryanik.mastermind.ui.theme.MasterMindTheme
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val model by viewModels<MyViewModel>()
         setContent {
             MasterMindTheme {
                 Surface(color = MaterialTheme.colors.background) {
-                    MainScreen()
+                    MainScreen(model)
                 }
             }
         }
@@ -39,8 +34,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainScreen() {
-    var isGuesser by rememberSaveable { mutableStateOf(false) }
+fun MainScreen(vm: MyViewModel) {
+    var isUserDecoder by rememberSaveable { mutableStateOf(false) }
+    val textGuess = rememberSaveable { mutableStateOf("") }
+    val textBulls = rememberSaveable { mutableStateOf("") }
+    val textCows = rememberSaveable { mutableStateOf("") }
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
@@ -49,10 +47,31 @@ fun MainScreen() {
         Surface(
             Modifier
                 .padding(padding)
-                .align(Alignment.CenterHorizontally)
+                .align(Alignment.CenterHorizontally),
+            shape = MaterialTheme.shapes.small,
+            elevation = 5.dp,
         ) {
-            Button(onClick = { isGuesser = !isGuesser }) {
-                Text(text = "Другой режим")
+            Column(
+                Modifier
+                    .padding(10.dp)
+            ) {
+                Button(onClick = { isUserDecoder = !isUserDecoder }) {
+                    Text(text = "Другой режим")
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(modifier = Modifier.align(Alignment.CenterHorizontally),
+                    onClick = {
+                        if (isUserDecoder) {
+                            textGuess.value = ""
+                            vm.resetEncoder()
+                        } else {
+                            textBulls.value = ""
+                            textCows.value = ""
+                            vm.resetDecoder()
+                        }
+                    }) {
+                    Text(text = "Заново")
+                }
             }
         }
         Surface(
@@ -62,7 +81,7 @@ fun MainScreen() {
             shape = MaterialTheme.shapes.small,
             elevation = 5.dp,
         ) {
-            InputFragment(isGuesser)
+            InputFragment(isUserDecoder, vm, textGuess, textBulls, textCows)
         }
         Surface(Modifier.padding(padding)) {
             Button(onClick = { /*TODO*/ }) {
@@ -72,51 +91,57 @@ fun MainScreen() {
     }
 }
 
-val guesser: Guesser = MinimaxSieve()
-
 @Composable
 fun InputFragment(
-    isGuesser: Boolean
+    isUserDecoder: Boolean,
+    vm: MyViewModel,
+    textGuess: MutableState<String>,
+    textBulls: MutableState<String>,
+    textCows: MutableState<String>
 ) {
     //Todo Рефакторинг
-    var guess by rememberSaveable { mutableStateOf("----") }
-    var answer by rememberSaveable { mutableStateOf(0 to 0) }
+    val guess by rememberSaveable { vm.guess }
+    val answer by rememberSaveable { vm.answer }
 
-    var isEnableGuesser by rememberSaveable { mutableStateOf(false) }
-    var isEnableSolver by rememberSaveable { mutableStateOf(true) }
+    val isEnableDecoding by rememberSaveable { vm.isLoadedEncoder }
+    val isEnableEncoding by rememberSaveable { vm.isLoadedDecoder }
 
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
+    val scaffoldState = rememberScaffoldState()
 
-    LaunchedEffect(true) {
-        coroutineScope.launch {
-            // Первый ход компьютера
-            guess = guesser.startWithFirstGuess()
-            isEnableGuesser = true
+    Scaffold(
+        Modifier.requiredHeight(300.dp),
+        scaffoldState = scaffoldState
+    ) {
+        fun errorHandler(e: Throwable) = scope.launch {
+            scaffoldState.snackbarHostState.showSnackbar(
+                e.toString() ?: "Ошибка в работе!"
+            )
+            vm.resetDecoder()
+            vm.resetEncoder()
+            textGuess.value = ""
+            textBulls.value = ""
+            textCows.value = ""
         }
-    }
-
-    if (isGuesser) GuesserContent(isEnableGuesser, answer) { innerGuess ->
-        coroutineScope.launch {
-            isEnableGuesser = false
-            // Вычисления
-            answer = guesser.getNextAnswer(innerGuess)
-            isEnableGuesser = true
+        vm.handler = CoroutineExceptionHandler { _, e -> errorHandler(e) }
+        if (isUserDecoder) DecoderInput(isEnableDecoding, answer, textGuess) { innerGuess ->
+            vm.runEncoder(innerGuess)
         }
-    }
-    else SolverContent(isEnableSolver, guess) { (bulls, cows) ->
-        coroutineScope.launch {
-            isEnableSolver = false
-            // Вычисления
-            guess = guesser.makeNextGuess(bulls.toInt(), cows.toInt())
-            isEnableSolver = true
+        else EncoderInput(isEnableEncoding, guess, textBulls, textCows) { (bulls, cows) ->
+            try {
+                vm.runDecoder(bulls.toInt(), cows.toInt())
+            } catch (e: Exception) {
+                errorHandler(e)
+            }
         }
     }
 }
+
 
 @Preview(showBackground = true)
 @Composable
 fun MainScreenPreview() {
     MasterMindTheme {
-        MainScreen()
+        MainScreen(MyViewModel())
     }
 }
