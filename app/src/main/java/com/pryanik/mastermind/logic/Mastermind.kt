@@ -5,13 +5,17 @@ import com.google.common.collect.Sets
 import com.google.common.math.LongMath
 import kotlin.math.min
 
-fun getEverything(values: List<Char>, k: Int) =
+data class ResultGuess(val guess: String, val isWin: Boolean)
+
+data class BullsAndCows(val bulls: Int)
+
+fun genPossibleAnswers(values: List<Char> = ('1'..'6').toList(), k: Int) =
     Array(LongMath.checkedPow(values.size.toLong(), k).toInt()) { idx ->
         CharArray(k) {
             values[(idx / LongMath.pow(values.size.toLong(), k - 1 - it)
                     % values.size).toInt()]
         }
-    }.toList()
+    }.map { it.joinToString("") }
 
 fun getEverythingNotRepeat(values: List<Char>, k: Int) =
     Sets.combinations(values.toSet(), k)
@@ -35,7 +39,7 @@ fun evaluateCows(guess: String, answer: String): Int {
     val counterAnswer = answer.toList().counting()
     var matches = 0
     guess.toList().counting().forEach { (t, u) ->
-        matches += kotlin.math.min(u, counterAnswer[t] ?: 0)
+        matches += min(u, counterAnswer[t] ?: 0)
     }
     val bulls = evaluateBulls(guess, answer)
     return matches - bulls
